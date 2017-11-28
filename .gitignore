@@ -4,3 +4,4 @@
 .git
 tmp
 /app/wp-cli.phar
+/vendor/
