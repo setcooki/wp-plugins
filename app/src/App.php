@@ -121,10 +121,12 @@ class App
                     static::$logger->log(LogLevel::WARNING, "item at index: $i has no name and will be skipped");
                     continue;
                 }
-                if(isset($item->location) && (!empty($item->location) && !$this->probeFile($item->location)))
+                if(isset($item->location) && (!empty($item->location) && ($location = $this->probeFile($item->location)) === false))
                 {
                     static::$logger->log(LogLevel::WARNING, "item at index: $i has a invalid (not found) location and will be skipped");
                     continue;
+                }else{
+                    $item->location = $location;
                 }
                 if(!isset($item->version) || empty($item->version))
                 {
@@ -248,13 +250,24 @@ class App
      */
     protected function probeFileFromDir($file)
     {
+        if(preg_match('=^\/?\.\..*=i', $file))
+        {
+            $parent = trim(dirname(dirname($file)), ' ' . DIRECTORY_SEPARATOR);
+            $cwd = trim(getcwd(), ' ' . DIRECTORY_SEPARATOR);
+            if($parent === $cwd)
+            {
+                $file = realpath($file);
+            }
+        }else{
+            $file = DIRECTORY_SEPARATOR . ltrim($file, ' ' . DIRECTORY_SEPARATOR);
+        }
         if(is_file($file))
         {
-            return true;
+            return $file;
         }
         if(is_file(dirname(__FILE__)) . $file)
         {
-            return true;
+            return $file;
         }
         return false;
     }
@@ -273,7 +286,7 @@ class App
 
         if((int)$code == 200)
         {
-            $status = true;
+            $status = $file;
         }else{
             $status = false;
         }
