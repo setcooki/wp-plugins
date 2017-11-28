@@ -1,0 +1,37 @@
+{
+  "name": "wp-plugins",
+  "description": "wp plugin auto installer",
+  "license": "MIT",
+  "authors": [
+    {
+      "name": "Frank Mueller",
+      "email": "set@cooki.me",
+      "homepage": "http://set.cooki.me",
+      "role": "Developer"
+    }
+  ],
+  "config": {
+    "vendor-dir": "vendor"
+  },
+  "require": {
+    "php": ">=5.6.1",
+    "macfja/phar-builder": "~0.2.6",
+    "symfony/yaml": "^3.3"
+  },
+  "autoload": {
+    "psr-4": {
+      "Setcooki\\Wp\\Plugin\\Installer\\": "app/src"
+    }
+  },
+  "extra": {
+    "phar-builder": {
+      "name": "wp-plugins.phar",
+      "entry-point": "app/index.php",
+      "output-dir": "build",
+      "include": [],
+      "include-dev": false,
+      "skip-shebang": false,
+      "build.before" : "git describe --tags > dist/version.txt"
+    }
+  }
+}

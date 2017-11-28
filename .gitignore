@@ -1,0 +1,6 @@
+.DS_Store
+.idea
+.log
+.git
+tmp
+/app/wp-cli.phar
