@@ -63,17 +63,17 @@ class App
             static::$logger->log(LogLevel::ERROR, "Missing argument config file --config");
             exit(1);
         }
-        if(!array_key_exists('path', $args))
-        {
-            static::$logger->log(LogLevel::ERROR, "Missing argument wordpress path --path");
-            exit(1);
-        }
         if(!array_key_exists('url', $args))
         {
             static::$logger->log(LogLevel::ERROR, "Missing argument wordpress url --url");
             exit(1);
         }
-        if(!is_file($args['config']))
+        if(!array_key_exists('path', $args))
+        {
+            static::$logger->log(LogLevel::ERROR, "Missing argument wordpress path --path");
+            exit(1);
+        }
+        if(!is_file($args['config']) || ($args['config'] = realpath($args['config'])) === false)
         {
             static::$logger->log(LogLevel::ERROR, "Plugin config file --config={$args['config']} could not be found");
             exit(1);
@@ -250,17 +250,25 @@ class App
      */
     protected function probeFileFromDir($file)
     {
-        if(preg_match('=^\/?\.\..*=i', $file))
+        $cnt = 0;
+        if(is_link($_SERVER['PHP_SELF']))
         {
-            $parent = trim(dirname(dirname($file)), ' ' . DIRECTORY_SEPARATOR);
-            $cwd = trim(getcwd(), ' ' . DIRECTORY_SEPARATOR);
-            if($parent === $cwd)
-            {
-                $file = realpath($file);
-            }
-        }else{
-            $file = DIRECTORY_SEPARATOR . ltrim($file, ' ' . DIRECTORY_SEPARATOR);
+            $cnt = substr_count(ltrim(readlink($_SERVER['PHP_SELF']), DIRECTORY_SEPARATOR), DIRECTORY_SEPARATOR);
         }
+
+        //phar runs from symbolic link so we need to auto correct relative plugin locations
+        if($cnt > 0 && preg_match('=^\/?\.\.\/.*=i', $file))
+        {
+            for($i = 0; $i < $cnt; $i++)
+            {
+                $file = preg_replace('=^(?:\/?\.\.\/)(.*)=i', '\\1', $file);
+            }
+            if($file[0] !== '.' && $file[0] !== DIRECTORY_SEPARATOR)
+            {
+                $file = '.' . DIRECTORY_SEPARATOR . $file;
+            }
+        }
+
         if(is_file($file))
         {
             return $file;
