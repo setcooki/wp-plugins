@@ -74,11 +74,11 @@ class App
             exit(1);
         }
 
-        if(array_key_exists('path', $args) && !is_dir($args['path']))
+        if(array_key_exists('path', $args) && !empty($args['path']) && !is_dir($args['path']))
         {
             static::$logger->log(LogLevel::ERROR, "Plugin argument wordpress path --path={$args['path']} could not be resolved");
             exit(1);
-        }else{
+        }else if(array_key_exists('path', $args) && empty($args['path'])){
             $args['path'] = '';
         }
 
@@ -150,10 +150,11 @@ class App
                 foreach($items as $item)
                 {
                     $this->install($item);
+                    sleep(1);
                 }
+                static::$logger->log(LogLevel::NOTICE, "> sync installed plugins against config");
+                $this->uninstall();
             }
-            static::$logger->log(LogLevel::NOTICE, "> sync installed plugins against config");
-            $this->uninstall();
         }
         catch(ParseException $e)
         {
@@ -166,34 +167,26 @@ class App
     /**
      * @param $item
      */
-    protected function install(&$item)
+    protected function install($item)
     {
         $return = 0;
         $status = (int)$item->status;
-
-        static::$logger->log(LogLevel::NOTICE, "install/update plugin: {$item->name}");
         static::$cli->exec(['plugin is-installed %s', $item->name], ['--quiet'], $return);
-
-        if(isset($item->location) && !empty($item->location))
-        {
-            $name = $item->location;
-        }else{
-            $name = $item->name;
-        }
 
         //not installed yet
         if((int)$return === 1)
         {
+            static::$logger->log(LogLevel::NOTICE, "install plugin: {$item->name}");
             switch($status)
             {
                 case -1:
                     static::$cli->exec(['plugin deactivate %s', $item->name]);
                     break;
                 case 0:
-                    static::$cli->exec(['plugin install %s', $name], ["--version={$item->version}"]);
+                    static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}"]);
                     break;
                 case 1:
-                    static::$cli->exec(['plugin install %s', $name], ["--version={$item->version}", "--activate"]);
+                    static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}", "--activate"]);
                     break;
                 default:
                     static::$logger->log(LogLevel::WARNING, "plugin status: $status of plugin: {$item->name} is not valid - skipping plugin");
@@ -201,15 +194,25 @@ class App
             }
         //is already installed
         }else{
-            $version = '';
-            static::$cli->exec(['plugin get %s', $item->name], ["--field=version", "--quiet"], $version);
-            if($version != $item->version)
+            static::$logger->log(LogLevel::NOTICE, "update plugin: {$item->name}");
+            $output = static::$cli->exec(['plugin get %s', $item->name], ["--quiet"]);
+            $output = $this->parsePluginInfo($output);
+            if(!empty($output))
             {
-                static::$cli->exec(['plugin update %s', $name], ["--version=$version"]);
-            }else if($status === -1){
-                static::$cli->exec(['plugin deactivate %s', $item->name]);
-            }else if($status === 1){
-                static::$cli->exec(['plugin activate %s', $item->name]);
+                if($output['version'] != $item->version)
+                {
+                    if(isset($item->location) && !empty($item->location))
+                    {
+                        static::$cli->exec(['plugin deactivate %s', $item->name], ["--uninstall"]);
+                        static::$cli->exec(['plugin install "%s"', $item->location], ["--version={$item->version}", "--force", "--activate"]);
+                    }else{
+                        static::$cli->exec(['plugin update %s', $item->name], ["--version={$item->version}"]);
+                    }
+                }else if($status === -1 && $output['status'] === 'active'){
+                    static::$cli->exec(['plugin deactivate %s', $item->name]);
+                }else if($status === 1 && $output['status'] === 'inactive'){
+                    static::$cli->exec(['plugin activate %s', $item->name]);
+                }
             }
         }
     }
@@ -228,10 +231,19 @@ class App
                 $plugin = str_getcsv($plugin);
                 if(isset($plugin[0]) && !empty($plugin[0]))
                 {
+                    if(strcasecmp($plugin[0], 'name') === 0)
+                    {
+                        continue;
+                    }
                     if(!array_key_exists(strtolower($plugin[0]), $this->plugins))
                     {
                         static::$logger->log(LogLevel::NOTICE, "uninstall plugin: $plugin[0]");
-                        static::$cli->exec(['plugin deactivate %s', $plugin[0]], '--uninstall');
+                        if(strtolower($plugin[1]) === 'active')
+                        {
+                            static::$cli->exec(['plugin deactivate %s', $plugin[0]], '--uninstall');
+                        }else{
+                            static::$cli->exec(['plugin uninstall %s', $plugin[0]]);
+                        }
                     }
                 }
             }
@@ -267,7 +279,7 @@ class App
         }
 
         //phar runs from symbolic link so we need to auto correct relative plugin locations
-        if($cnt > 0 && preg_match('=^\/?\.\.\/.*=i', $file))
+        if(preg_match('=^\/?\.\.\/.*=i', $file) && $cnt > 0)
         {
             for($i = 0; $i < $cnt; $i++)
             {
@@ -277,6 +289,12 @@ class App
             {
                 $file = '.' . DIRECTORY_SEPARATOR . $file;
             }
+        }
+
+        //config file is from absolute path so we need to auto correct plugin path also
+        if(!preg_match('=^\/?[\.]{1,2}=i', $this->config))
+        {
+            $file = rtrim(dirname($this->config), DIRECTORY_SEPARATOR) . DIRECTORY_SEPARATOR . ltrim($file, DIRECTORY_SEPARATOR);
         }
 
         if(is_file($file))
@@ -310,5 +328,21 @@ class App
         }
         @curl_close($ch);
         return $status;
+    }
+
+
+    /**
+     * @param array|null $info
+     * @return array
+     */
+    protected function parsePluginInfo(Array $info = null)
+    {
+        $tmp = [];
+        foreach((array)$info as $i)
+        {
+            $i = preg_split("=\s+=i", $i);
+            $tmp[trim($i[0])] = trim($i[1]);
+        }
+        return $tmp;
     }
 }
