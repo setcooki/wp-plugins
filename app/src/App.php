@@ -68,15 +68,18 @@ class App
             static::$logger->log(LogLevel::ERROR, "Missing argument wordpress url --url");
             exit(1);
         }
-        if(!array_key_exists('path', $args))
-        {
-            static::$logger->log(LogLevel::ERROR, "Missing argument wordpress path --path");
-            exit(1);
-        }
         if(!is_file($args['config']) || ($args['config'] = realpath($args['config'])) === false)
         {
-            static::$logger->log(LogLevel::ERROR, "Plugin config file --config={$args['config']} could not be found");
+            static::$logger->log(LogLevel::ERROR, "Plugin config file --config={$args['config']} could not be resolved");
             exit(1);
+        }
+
+        if(array_key_exists('path', $args) && !is_dir($args['path']))
+        {
+            static::$logger->log(LogLevel::ERROR, "Plugin argument wordpress path --path={$args['path']} could not be resolved");
+            exit(1);
+        }else{
+            $args['path'] = '';
         }
 
         $this->args = $args;
@@ -171,6 +174,13 @@ class App
         static::$logger->log(LogLevel::NOTICE, "install/update plugin: {$item->name}");
         static::$cli->exec(['plugin is-installed %s', $item->name], ['--quiet'], $return);
 
+        if(isset($item->location) && !empty($item->location))
+        {
+            $name = $item->location;
+        }else{
+            $name = $item->name;
+        }
+
         //not installed yet
         if((int)$return === 1)
         {
@@ -180,10 +190,10 @@ class App
                     static::$cli->exec(['plugin deactivate %s', $item->name]);
                     break;
                 case 0:
-                    static::$cli->exec(['plugin install %s', $item->name], ["--version={$item->version}"]);
+                    static::$cli->exec(['plugin install %s', $name], ["--version={$item->version}"]);
                     break;
                 case 1:
-                    static::$cli->exec(['plugin install %s', $item->name], ["--version={$item->version}", "--activate"]);
+                    static::$cli->exec(['plugin install %s', $name], ["--version={$item->version}", "--activate"]);
                     break;
                 default:
                     static::$logger->log(LogLevel::WARNING, "plugin status: $status of plugin: {$item->name} is not valid - skipping plugin");
@@ -195,7 +205,7 @@ class App
             static::$cli->exec(['plugin get %s', $item->name], ["--field=version", "--quiet"], $version);
             if($version != $item->version)
             {
-                static::$cli->exec(['plugin update %s', $item->name], ["--version=$version"]);
+                static::$cli->exec(['plugin update %s', $name], ["--version=$version"]);
             }else if($status === -1){
                 static::$cli->exec(['plugin deactivate %s', $item->name]);
             }else if($status === 1){
