@@ -86,11 +86,13 @@ class Cli
         }
         foreach($this->globals as $k => $v)
         {
-            if(!empty($v))
+            if($v === null)
             {
-                $cmd[] = trim(sprintf('%s="%s"', trim($k), trim($v)));
-            }else{
                 $cmd[] = trim($k);
+            }else if($v === ''){
+                $cmd[] = trim(sprintf('%s=""', trim($k)));
+            }else{
+                $cmd[] = trim(sprintf('%s="%s"', trim($k), trim($v)));
             }
         }
 
