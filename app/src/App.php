@@ -250,6 +250,9 @@ class App
      */
     protected function probeFileFromDir($file)
     {
+        var_dump($file);
+        var_dump(readlink($_SERVER['PHP_SELF']));
+
         $cnt = 0;
         if(is_link($_SERVER['PHP_SELF']))
         {
@@ -268,6 +271,8 @@ class App
                 $file = '.' . DIRECTORY_SEPARATOR . $file;
             }
         }
+
+        var_dump($file);
 
         if(is_file($file))
         {
