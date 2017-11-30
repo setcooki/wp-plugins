@@ -26,12 +26,12 @@ class Cli
 
         if(empty($phar))
         {
-            App::$logger->log(LogLevel::ERROR, "unable to find wp-cli.phar executable");
+            $GLOBALS['logger']->log(LogLevel::ERROR, "unable to find wp-cli.phar executable");
             exit(0);
         }
         if(!defined('PHP_BINARY') || (defined('PHP_BINARY') && empty(PHP_BINARY)))
         {
-            App::$logger->log(LogLevel::ERROR, "unable to find php binary");
+            $GLOBALS['logger']->log(LogLevel::ERROR, "unable to find php binary");
             exit(0);
         }
     }
@@ -54,10 +54,12 @@ class Cli
     /**
      * @param $command
      * @param null $args
-     * @param $return
+     * @param string $return
+     * @param bool $interactive
+     * @param bool $noerror
      * @return array
      */
-    public function exec($command, $args = null, &$return = '')
+    public function exec($command, $args = null, &$return = '', $interactive = false, $noerror = false)
     {
         if(is_array($command))
         {
@@ -69,10 +71,10 @@ class Cli
         }
 
         $debug = (array_key_exists('--debug', $this->globals)) ? true : false;
-
+        $output = [];
         $cmd = [];
         $cmd[] = PHP_BINARY;
-        if($debug)
+        if((bool)$debug)
         {
             $cmd[] = '-d error_reporting="E_ALL & ~E_NOTICE"';
         }
@@ -96,16 +98,23 @@ class Cli
             }
         }
 
-        $output = [];
-
-        $cmd = implode(' ', $cmd);
-
-        if($debug)
+        if((bool)$noerror)
         {
-            App::$logger->log(LogLevel::NOTICE, sprintf('exec wp-cli command: %s', $cmd));
+            $cmd[] = "2>/dev/null";
         }
 
-        exec($cmd, $output, $return);
+        $cmd = implode(' ', $cmd);
+        if((bool)$debug)
+        {
+            $GLOBALS['logger']->log(LogLevel::NOTICE, sprintf('exec wp-cli command: %s', $cmd));
+        }
+
+        if((bool)$interactive)
+        {
+            system($cmd, $return);
+        }else{
+            exec($cmd, $output, $return);
+        }
 
         return $output;
     }

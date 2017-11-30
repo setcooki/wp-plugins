@@ -5,8 +5,6 @@ namespace Setcooki\Wp\Plugin\Installer;
 use Psr\Log\LogLevel;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
-use Symfony\Component\Console\Output\ConsoleOutput;
-use Symfony\Component\Console\Logger\ConsoleLogger;
 
 /**
  * Class App
@@ -26,8 +24,6 @@ class App
 
     protected $plugins = [];
 
-    public static $logger = null;
-
     public static $cli = null;
 
 
@@ -36,8 +32,6 @@ class App
      */
     public function __construct()
     {
-        static::$logger = new ConsoleLogger(new ConsoleOutput(ConsoleOutput::VERBOSITY_VERBOSE));
-
         global $argc, $argv;
 
         $args = [];
@@ -60,23 +54,22 @@ class App
         }
         if(!array_key_exists('config', $args))
         {
-            static::$logger->log(LogLevel::ERROR, "Missing argument config file --config");
+            $GLOBALS['logger']->log(LogLevel::ERROR, "Missing argument config file --config");
             exit(1);
         }
         if(!array_key_exists('url', $args))
         {
-            static::$logger->log(LogLevel::ERROR, "Missing argument wordpress url --url");
+            $GLOBALS['logger']->log(LogLevel::ERROR, "Missing argument wordpress url --url");
             exit(1);
         }
         if(!is_file($args['config']) || ($args['config'] = realpath($args['config'])) === false)
         {
-            static::$logger->log(LogLevel::ERROR, "Plugin config file --config={$args['config']} could not be resolved");
+            $GLOBALS['logger']->log(LogLevel::ERROR, "Plugin config file --config={$args['config']} could not be resolved");
             exit(1);
         }
-
         if(array_key_exists('path', $args) && !empty($args['path']) && !is_dir($args['path']))
         {
-            static::$logger->log(LogLevel::ERROR, "Plugin argument wordpress path --path={$args['path']} could not be resolved");
+            $GLOBALS['logger']->log(LogLevel::ERROR, "Plugin argument wordpress path --path={$args['path']} could not be resolved");
             exit(1);
         }else if(array_key_exists('path', $args) && empty($args['path'])){
             $args['path'] = '';
@@ -110,7 +103,7 @@ class App
         try
         {
             $yaml = Yaml::parse(file_get_contents($this->config), Yaml::PARSE_OBJECT);
-            foreach($yaml as $item)
+            foreach($yaml as &$item)
             {
                 $i++;
                 if(is_array($item))
@@ -121,24 +114,27 @@ class App
                 {
                     $this->plugins[strtolower(trim($item->name))] = $item;
                 }else{
-                    static::$logger->log(LogLevel::WARNING, "item at index: $i has no name and will be skipped");
+                    $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i has no name and will be skipped");
                     continue;
                 }
-                if(isset($item->location) && (!empty($item->location) && ($location = $this->probeFile($item->location)) === false))
+                if(isset($item->location) && !empty($item->location))
                 {
-                    static::$logger->log(LogLevel::WARNING, "item at index: $i has a invalid (not found) location and will be skipped");
-                    continue;
-                }else{
-                    $item->location = $location;
+                    if(($location = $this->probeFile($item->location)) !== false)
+                    {
+                        $item->location = $location;
+                    }else{
+                        $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i has a invalid (not found) location and will be skipped");
+                        continue;
+                    }
                 }
                 if(!isset($item->version) || empty($item->version))
                 {
-                    static::$logger->log(LogLevel::WARNING, "item at index: $i has no version defined and will be skipped");
+                    $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i has no version defined and will be skipped");
                     continue;
                 }
                 if(!isset($item->status) || empty($item->status))
                 {
-                    static::$logger->log(LogLevel::WARNING, "item at index: $i has no status defined and will be skipped");
+                    $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i has no status defined and will be skipped");
                     continue;
                 }
                 $items[] = $item;
@@ -146,19 +142,18 @@ class App
 
             if(sizeof($items) > 0)
             {
-                static::$logger->log(LogLevel::NOTICE, "< sync config against installed plugins");
+                $GLOBALS['logger']->log(LogLevel::NOTICE, "< sync config against installed plugins");
                 foreach($items as $item)
                 {
                     $this->install($item);
-                    sleep(1);
                 }
-                static::$logger->log(LogLevel::NOTICE, "> sync installed plugins against config");
+                $GLOBALS['logger']->log(LogLevel::NOTICE, "> sync installed plugins against config");
                 $this->uninstall();
             }
         }
         catch(ParseException $e)
         {
-            static::$logger->log(LogLevel::ERROR, "config file --config={$args['config']} could not be read: " . $e->getMessage());
+            $GLOBALS['logger']->log(LogLevel::ERROR, "config file --config={$args['config']} could not be read: " . $e->getMessage());
             exit(0);
         }
     }
@@ -169,50 +164,35 @@ class App
      */
     protected function install($item)
     {
-        $return = 0;
         $status = (int)$item->status;
-        static::$cli->exec(['plugin is-installed %s', $item->name], ['--quiet'], $return);
+        $plugin = static::$cli->exec(['plugin get %s', $item->name], ["--quiet"], $return, false, true);
 
         //not installed yet
-        if((int)$return === 1)
+        if(empty($plugin))
         {
-            static::$logger->log(LogLevel::NOTICE, "install plugin: {$item->name}");
-            switch($status)
+            $GLOBALS['logger']->log(LogLevel::NOTICE, "install plugin: {$item->name}");
+            if((int)$item->status === -1)
             {
-                case -1:
-                    static::$cli->exec(['plugin deactivate %s', $item->name]);
-                    break;
-                case 0:
-                    static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}"]);
-                    break;
-                case 1:
-                    static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}", "--activate"]);
-                    break;
-                default:
-                    static::$logger->log(LogLevel::WARNING, "plugin status: $status of plugin: {$item->name} is not valid - skipping plugin");
-                    return;
+                static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}"], $return, true);
+            }else if((int)$item->status === 1){
+                static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}", "--activate"], $return, true);
             }
         //is already installed
         }else{
-            static::$logger->log(LogLevel::NOTICE, "update plugin: {$item->name}");
-            $output = static::$cli->exec(['plugin get %s', $item->name], ["--quiet"]);
-            $output = $this->parsePluginInfo($output);
-            if(!empty($output))
+            $GLOBALS['logger']->log(LogLevel::NOTICE, "update plugin: {$item->name}");
+            $plugin = $this->parsePluginInfo($plugin);
+            if($plugin['version'] != $item->version)
             {
-                if($output['version'] != $item->version)
+                if(isset($item->location) && !empty($item->location))
                 {
-                    if(isset($item->location) && !empty($item->location))
-                    {
-                        static::$cli->exec(['plugin deactivate %s', $item->name], ["--uninstall"]);
-                        static::$cli->exec(['plugin install "%s"', $item->location], ["--version={$item->version}", "--force", "--activate"]);
-                    }else{
-                        static::$cli->exec(['plugin update %s', $item->name], ["--version={$item->version}"]);
-                    }
-                }else if($status === -1 && $output['status'] === 'active'){
-                    static::$cli->exec(['plugin deactivate %s', $item->name]);
-                }else if($status === 1 && $output['status'] === 'inactive'){
-                    static::$cli->exec(['plugin activate %s', $item->name]);
+                    static::$cli->exec(['plugin install "%s"', $item->location], ["--version={$item->version}", "--force", "--activate"], $return, true);
+                }else{
+                    static::$cli->exec(['plugin update %s', $item->name], ["--version={$item->version}"], $return, true);
                 }
+            }else if($status === -1 && $plugin['status'] === 'active'){
+                static::$cli->exec(['plugin deactivate %s', $item->name]);
+            }else if($status === 1 && $plugin['status'] === 'inactive'){
+                static::$cli->exec(['plugin activate %s', $item->name]);
             }
         }
     }
@@ -223,7 +203,7 @@ class App
      */
     protected function uninstall()
     {
-        $plugins = static::$cli->exec('plugin list', ['--format=csv']);
+        $plugins = static::$cli->exec('plugin list', ['--format=csv'], $return, false, true);
         if(!empty($plugins))
         {
             foreach((array)$plugins as $plugin)
@@ -235,9 +215,13 @@ class App
                     {
                         continue;
                     }
+                    if(strcasecmp($plugin[1], 'must-use') === 0)
+                    {
+                        continue;
+                    }
                     if(!array_key_exists(strtolower($plugin[0]), $this->plugins))
                     {
-                        static::$logger->log(LogLevel::NOTICE, "uninstall plugin: $plugin[0]");
+                        $GLOBALS['logger']->log(LogLevel::NOTICE, "uninstall plugin: $plugin[0]");
                         if(strtolower($plugin[1]) === 'active')
                         {
                             static::$cli->exec(['plugin deactivate %s', $plugin[0]], '--uninstall');
