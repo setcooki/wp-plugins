@@ -62,16 +62,21 @@ class App
             $GLOBALS['logger']->log(LogLevel::ERROR, "Missing argument wordpress url --url");
             exit(1);
         }
-        if(!is_file($args['config']) || ($args['config'] = realpath($args['config'])) === false)
+        if(!array_key_exists('path', $args))
         {
-            $GLOBALS['logger']->log(LogLevel::ERROR, "Plugin config file --config={$args['config']} could not be resolved");
+            $GLOBALS['logger']->log(LogLevel::ERROR, "Missing argument wordpress path --path");
             exit(1);
         }
-        if(array_key_exists('path', $args) && !empty($args['path']) && !is_dir($args['path']))
+        if(!is_file($args['config']) || ($args['config'] = realpath($args['config'])) === false)
         {
-            $GLOBALS['logger']->log(LogLevel::ERROR, "Plugin argument wordpress path --path={$args['path']} could not be resolved");
+            $GLOBALS['logger']->log(LogLevel::ERROR, "Argument config file --config={$args['config']} could not be resolved");
             exit(1);
-        }else if(array_key_exists('path', $args) && empty($args['path'])){
+        }
+        if(!empty($args['path']) && !is_dir($args['path']))
+        {
+            $GLOBALS['logger']->log(LogLevel::ERROR, "Argument wordpress path --path={$args['path']} could not be resolved");
+            exit(1);
+        }else{
             $args['path'] = '';
         }
 
@@ -324,8 +329,16 @@ class App
         $tmp = [];
         foreach((array)$info as $i)
         {
-            $i = preg_split("=\s+=i", $i);
-            $tmp[trim($i[0])] = trim($i[1]);
+            $i = (array)preg_split("=\s+=i", $i);
+            if(isset($i[0]) && !empty($i[0]))
+            {
+                if(isset($i[1]))
+                {
+                    $tmp[trim($i[0])] = trim($i[1]);
+                }else{
+                    $tmp[trim($i[0])] = null;
+                }
+            }
         }
         return $tmp;
     }
