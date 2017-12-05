@@ -12,18 +12,39 @@ use Symfony\Component\Yaml\Yaml;
  */
 class App
 {
+    /**
+     * @var array
+     */
     public $args = [];
 
+    /**
+     * @var bool|null|string
+     */
     public $config = null;
 
+    /**
+     * @var null|string
+     */
     public $path = null;
 
+    /**
+     * @var mixed|null
+     */
     public $url = null;
 
+    /**
+     * @var bool
+     */
     public $debug = false;
 
+    /**
+     * @var array
+     */
     protected $plugins = [];
 
+    /**
+     * @var null
+     */
     public static $cli = null;
 
 
@@ -72,10 +93,15 @@ class App
             $GLOBALS['logger']->log(LogLevel::ERROR, "Argument config file --config={$args['config']} could not be resolved");
             exit(1);
         }
-        if(!empty($args['path']) && !is_dir($args['path']))
+        if(!empty($args['path']))
         {
-            $GLOBALS['logger']->log(LogLevel::ERROR, "Argument wordpress path --path={$args['path']} could not be resolved");
-            exit(1);
+            if(is_dir($args['path']))
+            {
+                $args['path'] = rtrim($args['path'], DIRECTORY_SEPARATOR);
+            }else{
+                $GLOBALS['logger']->log(LogLevel::ERROR, "Argument wordpress path --path={$args['path']} could not be resolved");
+                exit(1);
+            }
         }else{
             $args['path'] = '';
         }
@@ -94,6 +120,7 @@ class App
         {
             $globals['--debug'] = null;
         }
+
         static::$cli = Cli::instance($globals);
     }
 
