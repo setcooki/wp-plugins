@@ -169,6 +169,18 @@ class App
                     $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i has no status defined and will be skipped");
                     continue;
                 }
+                if(isset($item->skip) && !empty($item->skip))
+                {
+                    $skip = preg_split('=\s*\,\s*=i', trim($item->skip));
+                    foreach((array)$skip as $s)
+                    {
+                        if(preg_match(sprintf('=%s=i', $s), $this->url))
+                        {
+                            $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i satisfies url skip rule and will be skipped");
+                            continue 2;
+                        }
+                    }
+                }
                 $items[] = $item;
             }
 
