@@ -159,12 +159,12 @@ class App
                         continue;
                     }
                 }
-                if(!isset($item->version) || empty($item->version))
+                if(!isset($item->version) || $item->version === '' || $item->version === null)
                 {
                     $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i has no version defined and will be skipped");
                     continue;
                 }
-                if(!isset($item->status) || empty($item->status))
+                if(!isset($item->status) || $item->status === '' || $item->status === null)
                 {
                     $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i has no status defined and will be skipped");
                     continue;
@@ -197,7 +197,7 @@ class App
         }
         catch(ParseException $e)
         {
-            $GLOBALS['logger']->log(LogLevel::ERROR, "config file --config={$args['config']} could not be read: " . $e->getMessage());
+            $GLOBALS['logger']->log(LogLevel::ERROR, "config file --config={$this->args['config']} could not be read: " . $e->getMessage());
             exit(0);
         }
     }
