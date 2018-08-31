@@ -43,6 +43,16 @@ class App
     protected $plugins = [];
 
     /**
+     * @var array
+     */
+    protected $pluginNames = [];
+
+    /**
+     * @var array
+     */
+    protected $foundPlugins = [];
+
+    /**
      * @var null
      */
     public static $cli = null;
@@ -122,6 +132,28 @@ class App
         }
 
         static::$cli = Cli::instance($globals);
+
+        $this->init();
+    }
+
+
+    /**
+     *
+     */
+    protected function init()
+    {
+        if(defined('ABSPATH') && !function_exists( 'get_plugins'))
+        {
+        	require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
+        if(function_exists('get_plugins') && function_exists('plugin_basename'))
+        {
+            $this->foundPlugins = array_map(function($file)
+            {
+                $parts = explode(DIRECTORY_SEPARATOR, $file);
+                return array_shift($parts);
+            }, array_keys(get_plugins()));
+        }
     }
 
 
@@ -144,9 +176,13 @@ class App
                 }
                 if(isset($item->name) && !empty($item->name))
                 {
-                    $this->plugins[strtolower(trim($item->name))] = $item;
+                    $this->pluginNames[] = $item->name;
+                    $this->plugins[$this->slugify($item->name)] = $item;
+                }else if(isset($item->slug) && !empty($item->slug)){
+                    $this->pluginNames[] = $item->slug;
+                    $this->plugins[$this->slugify($item->slug)] = $item;
                 }else{
-                    $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i has no name and will be skipped");
+                    $GLOBALS['logger']->log(LogLevel::WARNING, "item at index: $i has no name or slug and will be skipped");
                     continue;
                 }
                 if(isset($item->location) && !empty($item->location))
@@ -255,6 +291,7 @@ class App
                 $plugin = str_getcsv($plugin);
                 if(isset($plugin[0]) && !empty($plugin[0]))
                 {
+                    $e = 0;
                     if(strcasecmp($plugin[0], 'name') === 0)
                     {
                         continue;
@@ -263,7 +300,19 @@ class App
                     {
                         continue;
                     }
-                    if(!array_key_exists(strtolower($plugin[0]), $this->plugins))
+                    if(array_key_exists($this->slugify($plugin[0]), $this->plugins))
+                    {
+                        $e++;
+                    }
+                    if(in_array($this->slugify($plugin[0]), $this->foundPlugins))
+                    {
+                        $e++;
+                    }
+                    if(in_array($plugin[0], $this->pluginNames))
+                    {
+                        $e++;
+                    }
+                    if($e === 0)
                     {
                         $GLOBALS['logger']->log(LogLevel::NOTICE, "uninstall plugin: $plugin[0]");
                         if(strtolower($plugin[1]) === 'active')
@@ -356,6 +405,18 @@ class App
         }
         @curl_close($ch);
         return $status;
+    }
+
+
+    /**
+     * @param $name
+     * @return null|string|string[]
+     */
+    protected function slugify($name)
+    {
+        $name = strtolower(trim($name, ' -'));
+        $name = preg_replace("/[\/_|+ -]+/", '-', $name);
+        return $name;
     }
 
 
