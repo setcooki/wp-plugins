@@ -28,6 +28,7 @@
       "name": "wp-plugins.phar",
       "entry-point": "app/index.php",
       "output-dir": "build",
+      "compression": "GZip",
       "include": [],
       "include-dev": false,
       "skip-shebang": false,

@@ -38,6 +38,11 @@ class App
     public $debug = false;
 
     /**
+     * @var bool
+     */
+    public $allowRoot = false;
+
+    /**
      * @var array
      */
     protected $plugins = [];
@@ -79,6 +84,10 @@ class App
             }
         }
 
+        if(array_key_exists('allow-root', $args))
+        {
+            $this->allowRoot = true;
+        }
         if(array_key_exists('debug', $args))
         {
             $this->debug = true;
@@ -129,6 +138,10 @@ class App
         if($this->debug)
         {
             $globals['--debug'] = null;
+        }
+        if($this->allowRoot)
+        {
+            $globals['--allow-root'] = null;
         }
 
         static::$cli = Cli::instance($globals);
