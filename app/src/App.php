@@ -73,7 +73,7 @@ class App
         $args = [];
         for ($i = 0; $i < $argc; $i++)
         {
-            if(preg_match('=^--([a-z]{1,})(?:(?:\=)(.*))?$=i', $argv[$i], $m))
+            if(preg_match('=^--([a-z\-]{1,})(?:(?:\=)(.*))?$=i', $argv[$i], $m))
             {
                 if(isset($m[2]) && !empty($m[2]))
                 {
@@ -83,7 +83,6 @@ class App
                 }
             }
         }
-
         if(array_key_exists('allow-root', $args))
         {
             $this->allowRoot = true;
