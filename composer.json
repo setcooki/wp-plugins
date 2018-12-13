@@ -16,7 +16,8 @@
   "require": {
     "php": ">=5.6.1",
     "macfja/phar-builder": "~0.2.6",
-    "symfony/yaml": "^3.3"
+    "symfony/yaml": "^3.3",
+    "psr/log": "^1.1"
   },
   "autoload": {
     "psr-4": {
