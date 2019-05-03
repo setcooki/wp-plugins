@@ -156,7 +156,10 @@ class App
     {
         if(defined('ABSPATH') && !function_exists( 'get_plugins'))
         {
-        	require_once ABSPATH . 'wp-admin/includes/plugin.php';
+            require_once ABSPATH . 'wp-load.php';
+        	require_once ABSPATH . 'wp-admin' . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'plugin.php';
+        	require_once ABSPATH . 'wp-includes' . DIRECTORY_SEPARATOR . 'plugin.php';
+        	require_once ABSPATH . 'wp-includes' . DIRECTORY_SEPARATOR . 'functions.php';
         }
         if(function_exists('get_plugins') && function_exists('plugin_basename'))
         {
@@ -259,6 +262,11 @@ class App
         $status = (int)$item->status;
         $plugin = static::$cli->exec(['plugin get %s', $item->name], ["--quiet"], $return, false, true);
 
+        if(empty($plugin))
+        {
+            $plugin = (array)get_plugin_data( WP_PLUGIN_DIR . '/' . $item->name);
+        }
+
         //not installed yet
         if(empty($plugin))
         {
@@ -270,7 +278,7 @@ class App
                 static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}", "--activate"], $return, true);
             }
         //is already installed
-        }else{
+        } else if(is_array($plugin) && array_key_exists('version', $plugin)){
             $GLOBALS['logger']->log(LogLevel::NOTICE, "update plugin: {$item->name}");
             $plugin = $this->parsePluginInfo($plugin);
             if($plugin['version'] != $item->version)
@@ -286,6 +294,8 @@ class App
             }else if($status === 1 && $plugin['status'] === 'inactive'){
                 static::$cli->exec(['plugin activate %s', $item->name]);
             }
+        }else{
+            $GLOBALS['logger']->log(LogLevel::NOTICE, "unable to install/update plugin: {$item->name} since no plugin data found");
         }
     }
 
