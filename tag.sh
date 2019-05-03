@@ -9,6 +9,7 @@ then
     exit 1
 fi;
 
+git add ./dist/*
 git tag -a v$V -m "Version $V $M"
 git push --tags
 ./build.sh
