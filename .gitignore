@@ -7,3 +7,4 @@ tmp
 /vendor/
 /composer.lock
 /wordpress/
+/build/
