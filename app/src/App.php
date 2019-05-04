@@ -278,21 +278,26 @@ class App
                 static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}", "--activate"], $return, true);
             }
         //is already installed
-        } else if(is_array($plugin) && array_key_exists('version', $plugin)){
+        } else if(is_array($plugin)){
             $GLOBALS['logger']->log(LogLevel::NOTICE, "update plugin: {$item->name}");
             $plugin = $this->parsePluginInfo($plugin);
-            if($plugin['version'] != $item->version)
+            if(array_key_exists('version', $plugin))
             {
-                if(isset($item->location) && !empty($item->location))
+                if($plugin['version'] != $item->version)
                 {
-                    static::$cli->exec(['plugin install "%s"', $item->location], ["--version={$item->version}", "--force", "--activate"], $return, true);
-                }else{
-                    static::$cli->exec(['plugin update %s', $item->name], ["--version={$item->version}"], $return, true);
+                    if(isset($item->location) && !empty($item->location))
+                    {
+                        static::$cli->exec(['plugin install "%s"', $item->location], ["--version={$item->version}", "--force", "--activate"], $return, true);
+                    }else{
+                        static::$cli->exec(['plugin update %s', $item->name], ["--version={$item->version}"], $return, true);
+                    }
+                }else if($status === -1 && $plugin['status'] === 'active'){
+                    static::$cli->exec(['plugin deactivate %s', $item->name]);
+                }else if($status === 1 && $plugin['status'] === 'inactive'){
+                    static::$cli->exec(['plugin activate %s', $item->name]);
                 }
-            }else if($status === -1 && $plugin['status'] === 'active'){
-                static::$cli->exec(['plugin deactivate %s', $item->name]);
-            }else if($status === 1 && $plugin['status'] === 'inactive'){
-                static::$cli->exec(['plugin activate %s', $item->name]);
+            }else{
+                $GLOBALS['logger']->log(LogLevel::NOTICE, "unable to install/update plugin: {$item->name} since no plugin data found");
             }
         }else{
             $GLOBALS['logger']->log(LogLevel::NOTICE, "unable to install/update plugin: {$item->name} since no plugin data found");
