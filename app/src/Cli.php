@@ -69,7 +69,6 @@ class Cli
         {
             $args = array($args);
         }
-
         $debug = (array_key_exists('--debug', $this->globals)) ? true : false;
         $output = [];
         $cmd = [];
