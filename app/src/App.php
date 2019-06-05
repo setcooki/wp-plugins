@@ -262,11 +262,10 @@ class App
         $GLOBALS['logger']->log(LogLevel::NOTICE, "processing plugin: {$item->name}");
 
         $status = (int)$item->status;
-        $plugin = static::$cli->exec(['plugin get %s', $item->name], ["--quiet"], $return, false, true);
-
+        $plugin = (array)get_plugin_data( WP_PLUGIN_DIR . '/' . $item->name);
         if(empty($plugin))
         {
-            $plugin = (array)get_plugin_data( WP_PLUGIN_DIR . '/' . $item->name);
+            $plugin = static::$cli->exec(['plugin get %s', $item->name], ["--quiet"], $return, false, true);
         }
 
         //not installed yet
