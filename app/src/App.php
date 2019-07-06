@@ -287,7 +287,7 @@ class App
                 if((isset($item->location) && !empty($item->location)) || !array_key_exists('version', $plugin))
                 {
                     $GLOBALS['logger']->log(LogLevel::NOTICE, "installing plugin: {$item->name} ({$item->version})");
-                    static::$cli->exec(['plugin install "%s"', $item->location], ["--version={$item->version}", "--force", "--activate"], $return, true);
+                    static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}", "--force", "--activate"], $return, true);
                 }else{
                     $GLOBALS['logger']->log(LogLevel::NOTICE, "updating plugin: {$item->name} from: {$plugin['version']} to: {$item->version}");
                     static::$cli->exec(['plugin update %s', $item->name], ["--version={$item->version}"], $return, true);
