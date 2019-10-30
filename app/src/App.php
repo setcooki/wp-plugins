@@ -325,11 +325,11 @@ class App
                     {
                         continue;
                     }
-                    if(array_key_exists($this->slugify($plugin[0]), $this->plugins))
+                    if(strcasecmp($plugin[1], 'dropin') === 0)
                     {
-                        $e++;
+                        continue;
                     }
-                    if(in_array($this->slugify($plugin[0]), $this->foundPlugins))
+                    if(array_key_exists($this->slugify($plugin[0]), $this->plugins))
                     {
                         $e++;
                     }
