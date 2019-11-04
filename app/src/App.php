@@ -45,6 +45,11 @@ class App
     /**
      * @var array
      */
+    public $ignore = [];
+
+    /**
+     * @var array
+     */
     protected $plugins = [];
 
     /**
@@ -90,6 +95,10 @@ class App
         if(array_key_exists('debug', $args))
         {
             $this->debug = true;
+        }
+        if(array_key_exists('ignore', $args))
+        {
+            $this->ignore = preg_split('=\s*\,\s*=i', trim($args['ignore'], ' ,'));
         }
         if(!array_key_exists('config', $args))
         {
@@ -317,6 +326,7 @@ class App
                 if(isset($plugin[0]) && !empty($plugin[0]))
                 {
                     $e = 0;
+                    $slug =  $this->slugify($plugin[0]);
                     if(strcasecmp($plugin[0], 'name') === 0)
                     {
                         continue;
@@ -329,7 +339,15 @@ class App
                     {
                         continue;
                     }
-                    if(array_key_exists($this->slugify($plugin[0]), $this->plugins))
+                    if(!empty($this->ignore) && preg_match('=^('.implode('|', $this->ignore).')$=i', $plugin[0]))
+                    {
+                        continue;
+                    }
+                    if(!empty($this->ignore) && preg_match('=^('.implode('|', $this->ignore).')$=i', $slug))
+                    {
+                        continue;
+                    }
+                    if(array_key_exists($slug, $this->plugins))
                     {
                         $e++;
                     }
