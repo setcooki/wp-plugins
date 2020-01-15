@@ -271,7 +271,7 @@ class App
         $GLOBALS['logger']->log(LogLevel::NOTICE, "processing plugin: {$item->name}");
 
         $status = (int)$item->status;
-        $plugin = static::$cli->exec(['plugin get %s', $item->name], ["--quiet"], $return, false, true);
+        $plugin = static::$cli->exec(['plugin get %s', $item->name], ['--quiet'], $return, false, true);
 
         if(empty($plugin))
         {
@@ -317,52 +317,55 @@ class App
      */
     protected function uninstall()
     {
-        $plugins = static::$cli->exec('plugin list', ['--format=csv'], $return, false, true);
+        $plugins = static::$cli->exec('plugin list', ['--format=csv', '--quiet'], $return, false, true);
         if(!empty($plugins))
         {
             foreach((array)$plugins as $plugin)
             {
-                $plugin = str_getcsv($plugin);
-                if(isset($plugin[0]) && !empty($plugin[0]))
+                if(preg_match('=^(([^,]{1,})\,){3,}=i', $plugin))
                 {
-                    $e = 0;
-                    $slug =  $this->slugify($plugin[0]);
-                    if(strcasecmp($plugin[0], 'name') === 0)
+                    $plugin = str_getcsv($plugin);
+                    if(isset($plugin[0]) && !empty($plugin[0]) && preg_match('=^([a-z0-9\.\-\_]{1,})$=i', $plugin[0]))
                     {
-                        continue;
-                    }
-                    if(strcasecmp($plugin[1], 'must-use') === 0)
-                    {
-                        continue;
-                    }
-                    if(strcasecmp($plugin[1], 'dropin') === 0)
-                    {
-                        continue;
-                    }
-                    if(!empty($this->ignore) && preg_match('=^('.implode('|', $this->ignore).')$=i', $plugin[0]))
-                    {
-                        continue;
-                    }
-                    if(!empty($this->ignore) && preg_match('=^('.implode('|', $this->ignore).')$=i', $slug))
-                    {
-                        continue;
-                    }
-                    if(array_key_exists($slug, $this->plugins))
-                    {
-                        $e++;
-                    }
-                    if(in_array($plugin[0], $this->pluginNames))
-                    {
-                        $e++;
-                    }
-                    if($e === 0)
-                    {
-                        $GLOBALS['logger']->log(LogLevel::NOTICE, "uninstall plugin: $plugin[0]");
-                        if(strtolower($plugin[1]) === 'active')
+                        $e = 0;
+                        $slug =  $this->slugify($plugin[0]);
+                        if(strcasecmp($plugin[0], 'name') === 0)
                         {
-                            static::$cli->exec(['plugin deactivate %s', $plugin[0]], '--uninstall');
-                        }else{
-                            static::$cli->exec(['plugin uninstall %s', $plugin[0]]);
+                            continue;
+                        }
+                        if(strcasecmp($plugin[1], 'must-use') === 0)
+                        {
+                            continue;
+                        }
+                        if(strcasecmp($plugin[1], 'dropin') === 0)
+                        {
+                            continue;
+                        }
+                        if(!empty($this->ignore) && preg_match('=^('.implode('|', $this->ignore).')$=i', $plugin[0]))
+                        {
+                            continue;
+                        }
+                        if(!empty($this->ignore) && preg_match('=^('.implode('|', $this->ignore).')$=i', $slug))
+                        {
+                            continue;
+                        }
+                        if(array_key_exists($slug, $this->plugins))
+                        {
+                            $e++;
+                        }
+                        if(in_array($plugin[0], $this->pluginNames))
+                        {
+                            $e++;
+                        }
+                        if($e === 0)
+                        {
+                            $GLOBALS['logger']->log(LogLevel::NOTICE, "uninstall plugin: $plugin[0]");
+                            if(strtolower($plugin[1]) === 'active')
+                            {
+                                static::$cli->exec(['plugin deactivate %s', $plugin[0]], '--uninstall');
+                            }else{
+                                static::$cli->exec(['plugin uninstall %s', $plugin[0]]);
+                            }
                         }
                     }
                 }
