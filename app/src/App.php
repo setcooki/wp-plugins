@@ -165,10 +165,9 @@ class App
     {
         if(defined('ABSPATH') && !function_exists( 'get_plugins'))
         {
+            define('SHORTINIT', false);
+            define('WP_USE_THEMES', false);
             require_once ABSPATH . 'wp-load.php';
-        	require_once ABSPATH . 'wp-admin' . DIRECTORY_SEPARATOR . 'includes' . DIRECTORY_SEPARATOR . 'plugin.php';
-        	require_once ABSPATH . 'wp-includes' . DIRECTORY_SEPARATOR . 'plugin.php';
-        	require_once ABSPATH . 'wp-includes' . DIRECTORY_SEPARATOR . 'functions.php';
         }
         if(function_exists('get_plugins') && function_exists('plugin_basename'))
         {

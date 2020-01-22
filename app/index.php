@@ -18,7 +18,6 @@ if(preg_match('=\-\-path\=([^\s]+)=i', implode(' ', $argv), $m))
 {
     define('ABSPATH', realpath(rtrim($m[1], ' \\/')) . DIRECTORY_SEPARATOR);
 }
-
 if(!defined('ABSPATH'))
 {
     if(isset($_SERVER['DOCUMENT_ROOT']) && !empty($_SERVER['DOCUMENT_ROOT']))
@@ -28,13 +27,23 @@ if(!defined('ABSPATH'))
         define('ABSPATH', preg_replace('=wp-content.*=i', '', dirname($_SERVER['SCRIPT_FILENAME'])));
     }
 }
-if(!defined('WPINC'))
-{
-    define('WPINC', 'wp-includes');
-}
 
 require dirname(__FILE__) . '/../vendor/autoload.php';
 
-$GLOBALS['logger'] = new ConsoleLogger(new ConsoleOutput(ConsoleOutput::VERBOSITY_VERBOSE));
+if(preg_match('=\-\-verbosity\=([^\s]+)=i', implode(' ', $argv), $m))
+{
+    $verbosity = (int)$m[1];
+}else{
+    $verbosity = ConsoleOutput::VERBOSITY_VERBOSE;
+}
 
-(new \Setcooki\Wp\Plugin\Installer\App())->run();
+$GLOBALS['logger'] = new ConsoleLogger(new ConsoleOutput($verbosity));
+
+try
+{
+    (new \Setcooki\Wp\Plugin\Installer\App())->run();
+}
+catch (\Exception $e)
+{
+    $GLOBALS['logger']->alert($e->getMessage());
+}
