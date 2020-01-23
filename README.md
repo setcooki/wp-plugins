@@ -36,7 +36,7 @@ the config yml file structure looks like the following
   location: ""
   version: "2.5.14"
   status: -1
-  init: language plugin install bbpress de_DE
+  init: "language plugin install bbpress de_DE"
 ```
 
 ### Properties per item
