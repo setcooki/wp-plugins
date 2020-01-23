@@ -308,6 +308,15 @@ class App
         }else{
             $GLOBALS['logger']->log(LogLevel::NOTICE, "unable to install/update plugin: {$item->name} since no plugin data found");
         }
+        if(isset($item->init) && !empty($item->init))
+        {
+            foreach((array)preg_split('=\s?\|\s?=i', trim($item->init)) as $cmd)
+            {
+                $cmd = preg_replace('=^(.*wp(-cli\.phar)?)?=i', '', trim($cmd));
+                $GLOBALS['logger']->log(LogLevel::NOTICE, "running init cmd: {$cmd} for plugin: {$item->name}");
+                static::$cli->exec(['%s', $cmd]);
+            }
+        }
     }
 
 

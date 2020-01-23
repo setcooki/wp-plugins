@@ -107,7 +107,6 @@ class Cli
         {
             $GLOBALS['logger']->log(LogLevel::NOTICE, sprintf('exec wp-cli command: %s', $cmd));
         }
-
         if((bool)$interactive)
         {
             system($cmd, $return);
