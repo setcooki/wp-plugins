@@ -36,6 +36,7 @@ the config yml file structure looks like the following
   location: ""
   version: "2.5.14"
   status: -1
+  init: language plugin install bbpress de_DE
 ```
 
 ### Properties per item
@@ -45,6 +46,7 @@ the config yml file structure looks like the following
 - __location__:  (string, required) - The location/path of the plugin zip on your local filesystem, remote public filesystem or an empty string for automatic lookup in wordpress plugin repo
 - __version__: (string, required) - The plugin version as stated in plugin file or wordpress repo
 - __status__: (number, required) - The plugin status (-1 deactivate, 0 = do nothing, 1 = activate)
+- __init__: (string) - optional wp-cli commands separated by | (NOTE: commands are expected without leading wp(-cli.phar) executable
 
 Plugin not in the config file but installed in wordpress will be delete while auto deploying!
 
