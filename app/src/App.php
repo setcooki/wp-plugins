@@ -169,6 +169,10 @@ class App
             define('WP_USE_THEMES', false);
             require_once ABSPATH . 'wp-load.php';
         }
+        if(defined('ABSPATH') && !function_exists('get_plugin_data'))
+        {
+            require_once ABSPATH . 'wp-admin/includes/plugin.php';
+        }
         if(function_exists('get_plugins') && function_exists('plugin_basename'))
         {
             $this->foundPlugins = array_map(function($file)
