@@ -10,18 +10,31 @@ use Psr\Log\LogLevel;
  */
 class Cli
 {
+    /**
+     * @var array
+     */
     protected $globals = [];
 
+    /**
+     * @var array
+     */
+    protected $flags = [];
+
+    /**
+     * @var null
+     */
     static protected $_instance = null;
 
 
     /**
      * Cli constructor.
      * @param array $globals
+     * @param array $flags
      */
-    protected function __construct(Array $globals = [])
+    protected function __construct(Array $globals = [], Array $flags = [])
     {
         $this->globals = $globals;
+        $this->flags = $flags;
         $phar = 'phar://wp-cli.phar';
 
         if(empty($phar))
@@ -39,13 +52,14 @@ class Cli
 
     /**
      * @param array $globals
+     * @param array $flags
      * @return null
      */
-    public static function  instance(Array $globals = [])
+    public static function instance(Array $globals = [], Array $flags = [])
     {
         if(static::$_instance === null)
         {
-            static::$_instance = new static($globals);
+            static::$_instance = new static($globals, $flags);
         }
         return static::$_instance;
     }
@@ -77,8 +91,8 @@ class Cli
         {
             $cmd[] = '-d error_reporting="E_ALL & ~E_NOTICE"';
         }
-        $cmd[] = sprintf('-d memory_limit="%s"', $this->globals['--memory-limit']);
-        $cmd[] = sprintf('-d max_execution_time="%d"', $this->globals['--max-execution-time']);
+        $cmd[] = sprintf('-d memory_limit="%s"', ((array_key_exists('memory-limit', $this->flags) && !empty($this->flags['memory-limit'])) ? $this->flags['memory-limit'] : '512m'));
+        $cmd[] = sprintf('-d max_execution_time="%d"', ((array_key_exists('max-execution-time', $this->flags)) ? (int)$this->flags['max-execution-time'] : 120));
         $cmd[] = './wp-cli.phar';
         $cmd[] = trim($command);
         if(!empty($args))

@@ -142,8 +142,6 @@ class App
         [
             '--url' => $this->url,
             '--path' => $this->path,
-            '--memory-limit' => ((array_key_exists('memory-limit', $args)) ? $args['memory-limit'] : '512mb'),
-            '--max-execution-time' => ((array_key_exists('max-execution-time', $args)) ? (int)$args['max-execution-time'] : 120),
         ];
         if($this->debug)
         {
@@ -153,8 +151,13 @@ class App
         {
             $globals['--allow-root'] = null;
         }
+        $flags =
+        [
+            '--memory-limit' => ((array_key_exists('memory-limit', $args)) ? $args['memory-limit'] : '512m'),
+            '--max-execution-time' => ((array_key_exists('max-execution-time', $args)) ? (int)$args['max-execution-time'] : 120),
+        ];
 
-        static::$cli = Cli::instance($globals);
+        static::$cli = Cli::instance($globals, $flags);
 
         $this->init();
     }
