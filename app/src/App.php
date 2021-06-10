@@ -142,6 +142,8 @@ class App
         [
             '--url' => $this->url,
             '--path' => $this->path,
+            '--memory-limit' => ((array_key_exists('memory-limit', $args)) ? $args['memory-limit'] : '512mb'),
+            '--max-execution-time' => ((array_key_exists('max-execution-time', $args)) ? (int)$args['max-execution-time'] : 120),
         ];
         if($this->debug)
         {

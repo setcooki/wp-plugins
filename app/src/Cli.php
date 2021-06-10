@@ -77,8 +77,8 @@ class Cli
         {
             $cmd[] = '-d error_reporting="E_ALL & ~E_NOTICE"';
         }
-        $cmd[] = '-d memory_limit="512M"';
-        $cmd[] = '-d max_execution_time="120"';
+        $cmd[] = sprintf('-d memory_limit="%s"', $this->globals['--memory-limit']);
+        $cmd[] = sprintf('-d max_execution_time="%d"', $this->globals['--max-execution-time']);
         $cmd[] = './wp-cli.phar';
         $cmd[] = trim($command);
         if(!empty($args))
