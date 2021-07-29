@@ -31,11 +31,13 @@ the config yml file structure looks like the following
 - slug: "advanced-custom-fields-pro"
   location: "./wp-plugins/advanced-custom-fields-pro.5.7.1.zip"
   version: "5.7.1"
+  force: "example.domain.com"
   status: 1
 - name: "bbpress"
   location: ""
   version: "2.5.14"
   status: -1
+  skip: "example.domain.com"
   init: "language plugin install bbpress de_DE"
 ```
 
@@ -47,6 +49,8 @@ the config yml file structure looks like the following
 - __version__: (string, required) - The plugin version as stated in plugin file or wordpress repo
 - __status__: (number, required) - The plugin status (-1 deactivate, 0 = do nothing, 1 = activate)
 - __init__: (string) - optional wp-cli commands separated by | (NOTE: commands are expected without leading wp(-cli.phar) executable
+- __skip__: (string) - comma separated list of domain names where install/update of plugins is skipped
+- __force__: (string) - comma separated list of domain names where installed plugins with same version number are always forced to be reinstalled
 
 Plugin not in the config file but installed in wordpress will be delete while auto deploying!
 

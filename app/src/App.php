@@ -239,7 +239,7 @@ class App
                 }
                 if(isset($item->skip) && !empty($item->skip))
                 {
-                    $skip = preg_split('=\s*\,\s*=i', trim($item->skip));
+                    $skip = preg_split('=\s*\,\s*=i', trim($item->skip, ', '));
                     foreach((array)$skip as $s)
                     {
                         if(preg_match(sprintf('=%s=i', $s), $this->url))
@@ -248,6 +248,22 @@ class App
                             continue 2;
                         }
                     }
+                }
+                if(isset($item->force) && !empty($item->force))
+                {
+                    $forced = 0;
+                    $force = preg_split('=\s*\,\s*=i', trim($item->force, ', '));
+                    foreach((array)$force as $f)
+                    {
+                        if(preg_match(sprintf('=%s=i', $f), $this->url))
+                        {
+                            $forced = 1;
+                            break;
+                        }
+                    }
+                    $item->force = $forced;
+                }else{
+                    $item->force = 0;
                 }
                 $items[] = $item;
             }
@@ -306,8 +322,14 @@ class App
                     $GLOBALS['logger']->log(LogLevel::NOTICE, "installing plugin: {$item->name} ({$item->version})");
                     static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}", "--force", "--activate"], $return, true);
                 }else{
-                    $GLOBALS['logger']->log(LogLevel::NOTICE, "updating plugin: {$item->name} from: {$plugin['version']} to: {$item->version}");
-                    static::$cli->exec(['plugin update %s', $item->name], ["--version={$item->version}"], $return, true);
+                    if(isset($item->force) && (int)$item->force === 1)
+                    {
+                        $GLOBALS['logger']->log(LogLevel::NOTICE, "updating plugin forced: {$item->name} from: {$plugin['version']} to: {$item->version}");
+                        static::$cli->exec(['plugin install %s', $item->name], ["--version={$item->version}", "--force"], $return, true);
+                    }else{
+                        $GLOBALS['logger']->log(LogLevel::NOTICE, "updating plugin: {$item->name} from: {$plugin['version']} to: {$item->version}");
+                        static::$cli->exec(['plugin update %s', $item->name], ["--version={$item->version}"], $return, true);
+                    }
                 }
             }else if($status === -1 && $plugin['status'] === 'active'){
                 static::$cli->exec(['plugin deactivate %s', $item->name]);
