@@ -11,6 +11,18 @@ if(!defined('DIRECTORY_SEPARATOR'))
 }
 if(preg_match('=\-\-debug=i', implode(' ', $argv)))
 {
+    if(!defined('WP_DEBUG'))
+    {
+        define( 'WP_DEBUG', true);
+    }
+    if(!defined('WP_DEBUG_LOG'))
+    {
+        define( 'WP_DEBUG_LOG', false);
+    }
+    if(!defined('WP_DEBUG_DISPLAY'))
+    {
+        define( 'WP_DEBUG_DISPLAY', true);
+    }
     error_reporting(E_ALL | E_STRICT);
     ini_set('display_errors', '1');
 }
@@ -38,12 +50,12 @@ if(preg_match('=\-\-verbosity\=([^\s]+)=i', implode(' ', $argv), $m))
 }
 
 $GLOBALS['logger'] = new ConsoleLogger(new ConsoleOutput($verbosity));
-
 try
 {
     (new \Setcooki\Wp\Plugin\Installer\App())->run();
 }
 catch (\Exception $e)
 {
+    print_r($e);
     $GLOBALS['logger']->alert($e->getMessage());
 }

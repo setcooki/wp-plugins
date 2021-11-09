@@ -5,6 +5,7 @@ namespace Setcooki\Wp\Plugin\Installer;
 use Psr\Log\LogLevel;
 use Symfony\Component\Yaml\Exception\ParseException;
 use Symfony\Component\Yaml\Yaml;
+use function WP_CLI\Utils\get_plugin_name;
 
 /**
  * Class App
@@ -41,6 +42,16 @@ class App
      * @var bool
      */
     public $allowRoot = false;
+
+    /**
+     * @var bool
+     */
+    public $resync = true;
+
+    /**
+     * @var bool
+     */
+    public $archive = true;
 
     /**
      * @var array
@@ -95,6 +106,14 @@ class App
         if(array_key_exists('debug', $args))
         {
             $this->debug = true;
+        }
+        if(array_key_exists('without-resync', $args))
+        {
+            $this->resync = false;
+        }
+        if(array_key_exists('without-archive', $args))
+        {
+            $this->archive = false;
         }
         if(array_key_exists('ignore', $args))
         {
@@ -196,6 +215,7 @@ class App
     {
         $i = -1;
         $items = [];
+
         try
         {
             $yaml = Yaml::parse(file_get_contents($this->config), Yaml::PARSE_OBJECT);
@@ -275,8 +295,11 @@ class App
                 {
                     $this->install($item);
                 }
-                $GLOBALS['logger']->log(LogLevel::NOTICE, "> sync installed plugins against config");
-                $this->uninstall();
+                if($this->resync)
+                {
+                    $GLOBALS['logger']->log(LogLevel::NOTICE, "> sync installed plugins against config");
+                    $this->uninstall();
+                }
             }
         }
         catch(ParseException $e)
@@ -296,10 +319,21 @@ class App
 
         $status = (int)$item->status;
         $plugin = static::$cli->exec(['plugin get %s', $item->name], ['--quiet'], $return, false, true);
+        $path = static::$cli->exec(['plugin path %s', $item->name], ['--quiet'], $return, false, true);
 
         if(empty($plugin))
         {
-            $plugin = (array)get_plugin_data( WP_PLUGIN_DIR . '/' . $item->name);
+            $plugin = (array)get_plugin_data( WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . $item->name);
+        }
+        if(empty($plugin) || (!empty($plugin) && isset($plugin['Name']) && empty($plugin['Name'])))
+        {
+            $plugin = (array)get_plugin_data( WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . $item->name . DIRECTORY_SEPARATOR . $item->name . '.php');
+        }
+        if((!empty($path) && isset($path[0])) && (!empty($plugin) && (isset($plugin['Name']) || isset($plugin[0]))))
+        {
+            $plugin = $this->parsePluginInfo($path[0], $plugin);
+        }else{
+            $plugin = null;
         }
 
         //not installed yet
@@ -314,10 +348,19 @@ class App
             }
         //is already installed
         } else if(is_array($plugin)){
-            $plugin = $this->parsePluginInfo($plugin);
-            if((array_key_exists('version', $plugin) && $plugin['version'] != $item->version) || !array_key_exists('version', $plugin))
+            $force = false;
+            if($this->archive && (isset($item->location) && !empty($item->location) && preg_match('=\.zip=i', $item->location)))
             {
-                if((isset($item->location) && !empty($item->location)) || !array_key_exists('version', $plugin))
+                $archive = WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . '~plugins' . DIRECTORY_SEPARATOR . basename($item->location);
+                if(is_file($item->location) && is_file($archive) && (int)filesize($item->location) !== (int)filesize($archive))
+                {
+                    $GLOBALS['logger']->log(LogLevel::NOTICE, "force update plugin {$item->name} since file size has changed");
+                    $force = true;
+                }
+            }
+            if((array_key_exists('version', $plugin) && $plugin['version'] != $item->version) || !array_key_exists('version', $plugin) || $force)
+            {
+                if((isset($item->location) && !empty($item->location)) || !array_key_exists('version', $plugin) || $force)
                 {
                     $GLOBALS['logger']->log(LogLevel::NOTICE, "installing plugin: {$item->name} ({$item->version})");
                     static::$cli->exec(['plugin install %s', ((isset($item->location) && !empty($item->location)) ? $item->location : $item->name)], ["--version={$item->version}", "--force", "--activate"], $return, true);
@@ -332,12 +375,18 @@ class App
                     }
                 }
             }else if($status === -1 && $plugin['status'] === 'active'){
+                $GLOBALS['logger']->log(LogLevel::NOTICE, "deactivate plugin: {$item->name} ({$item->version})");
                 static::$cli->exec(['plugin deactivate %s', $item->name]);
             }else if($status === 1 && $plugin['status'] === 'inactive'){
+                $GLOBALS['logger']->log(LogLevel::NOTICE, "activate plugin: {$item->name} ({$item->version})");
                 static::$cli->exec(['plugin activate %s', $item->name]);
             }
         }else{
             $GLOBALS['logger']->log(LogLevel::NOTICE, "unable to install/update plugin: {$item->name} since no plugin data found");
+        }
+        if($this->archive && (isset($item->location) && !empty($item->location) && preg_match('=\.zip=i', $item->location)))
+        {
+            $this->archive($item);
         }
         if(isset($item->init) && !empty($item->init))
         {
@@ -506,25 +555,83 @@ class App
 
 
     /**
-     * @param array|null $info
+     * @param $path
+     * @param array|null $data
      * @return array
      */
-    protected function parsePluginInfo(Array $info = null)
+    protected function parsePluginInfo($path, Array $data = null)
     {
         $tmp = [];
-        foreach((array)$info as $i)
+
+        $path = explode(DIRECTORY_SEPARATOR, trim($path, DIRECTORY_SEPARATOR));
+        if(sizeof($path) >= 2)
         {
-            $i = (array)preg_split("=\s+=i", $i);
-            if(isset($i[0]) && !empty($i[0]))
+            $plugin = $path[sizeof($path) - 2] . DIRECTORY_SEPARATOR . $path[sizeof($path) - 1];
+        }else{
+            $plugin = $path;
+        }
+
+        if(array_key_exists('Version', $data))
+        {
+            return
+            [
+                'name' => $data['Name'],
+                'title' => $data['Title'] ,
+                'author' => $data['Author'],
+                'version' => $data['Version'],
+                'description' => $data['Description'],
+                'status' => (is_plugin_active($plugin)) ? 'active' : 'inactive'
+            ];
+        }else{
+            foreach($data as $k => $v)
             {
-                if(isset($i[1]))
+                $v = (array)preg_split("=\s+=i", $v);
+                if(isset($v[0]) && !empty($v[0]))
                 {
-                    $tmp[trim($i[0])] = trim($i[1]);
-                }else{
-                    $tmp[trim($i[0])] = null;
+                    if(isset($v[1]))
+                    {
+                        $tmp[trim($v[0])] = trim($v[1]);
+                    }else{
+                        $tmp[trim($v[0])] = null;
+                    }
                 }
             }
+            return $tmp;
         }
-        return $tmp;
+    }
+
+
+    /**
+     * @param \stdClass $item
+     */
+    protected function archive(\stdClass $item)
+    {
+        if(is_writable(WP_PLUGIN_DIR))
+        {
+            $dir = WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . '~plugins';
+            $hta = WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . '~plugins' . DIRECTORY_SEPARATOR .  '.htaccess';
+            $file = WP_PLUGIN_DIR . DIRECTORY_SEPARATOR . '~plugins' . DIRECTORY_SEPARATOR . basename($item->location);
+
+            if(!is_dir($dir))
+            {
+                if(!mkdir($dir, 0775))
+                {
+                    $GLOBALS['logger']->log(LogLevel::DEBUG, sprintf('unable to create archive dir: %s', $dir));
+                }
+            }
+            if(!is_file($hta))
+            {
+                if(!file_put_contents($hta, "Options -Indexes\norder deny,allow\ndeny from all"))
+                {
+                    $GLOBALS['logger']->log(LogLevel::DEBUG, sprintf('unable to create archive .htaccess file: %s', $hta));
+                }
+            }
+            if(!copy($item->location, $file))
+            {
+                $GLOBALS['logger']->log(LogLevel::DEBUG, sprintf('unable to create archive zip %s', $file));
+            }
+        }else{
+            $GLOBALS['logger']->log(LogLevel::DEBUG, sprintf('plugin dir %s not writeable', WP_PLUGIN_DIR));
+        }
     }
 }
