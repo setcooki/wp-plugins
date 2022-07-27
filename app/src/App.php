@@ -392,7 +392,8 @@ class App
         {
             foreach((array)preg_split('=\s?\|\s?=i', trim($item->init)) as $cmd)
             {
-                $cmd = preg_replace('=^(.*wp(-cli\.phar)?)?=i', '', trim($cmd));
+                $cmd = preg_replace('=^php=i', '', trim($cmd));
+                $cmd = preg_replace('=^(wp(-cli\.phar)?)?=i', '', trim($cmd));
                 $GLOBALS['logger']->log(LogLevel::NOTICE, "running init cmd: {$cmd} for plugin: {$item->name}");
                 static::$cli->exec(['%s', $cmd]);
             }

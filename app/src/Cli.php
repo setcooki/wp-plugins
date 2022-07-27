@@ -117,6 +117,7 @@ class Cli
         }
 
         $cmd = implode(' ', $cmd);
+
         if((bool)$debug)
         {
             $GLOBALS['logger']->log(LogLevel::NOTICE, sprintf('exec wp-cli command: %s', $cmd));
